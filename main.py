@@ -4,8 +4,9 @@ from datetime import datetime
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error
 import joblib
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Load and clean the data
 @st.cache_data  # Cache the data loading for faster reloads
@@ -90,6 +91,37 @@ def main():
                 st.info(f"Prominent Pollutants for {user_city}: {prominent_pollutants}")
         else:
             st.warning("Please enter both the date and city.")
+    
+    # Visualizations section
+    st.header("City-Specific Data Visualizations")
+    
+    # Filter the dataframe by the selected city
+    city_encoded = le_city.transform([user_city])[0]
+    df_city = df[df['City'] == city_encoded]
+
+    # 1. Pollution Trend by City (Line plot over time)
+    st.subheader(f"Pollution Index Trend for {user_city}")
+    plt.figure(figsize=(10, 6))
+    sns.lineplot(data=df_city, x='Date', y='Index Value')
+    plt.title(f"Pollution Index Trend in {user_city}")
+    plt.xticks(rotation=45)
+    st.pyplot(plt)
+
+    # 2. City-wise Pollution Distribution (Box plot)
+    st.subheader(f"Pollution Index Distribution in {user_city}")
+    plt.figure(figsize=(10, 6))
+    sns.boxplot(data=df_city, x='City', y='Index Value')
+    plt.title(f"Pollution Index Distribution in {user_city}")
+    st.pyplot(plt)
+
+    # 3. Time Series of Pollution Index for the selected city
+    st.subheader(f"Time Series of Pollution Index for {user_city}")
+    df_grouped_by_date = df_city.groupby('Date')['Index Value'].mean().reset_index()
+    plt.figure(figsize=(10, 6))
+    sns.lineplot(data=df_grouped_by_date, x='Date', y='Index Value')
+    plt.title(f"Pollution Index Over Time in {user_city}")
+    plt.xticks(rotation=45)
+    st.pyplot(plt)
 
 if __name__ == "__main__":
     main()
