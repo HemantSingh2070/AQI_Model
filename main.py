@@ -20,6 +20,12 @@ def load_and_preprocess_data():
     df['City'] = le_city.fit_transform(df['City'])
     return df, le_city
 
+# Load prominent pollutants data
+@st.cache_data
+def load_pollutants_data():
+    pollutants_df = pd.read_csv("ProminentPollutants.csv")  # Replace with actual file path
+    return pollutants_df
+
 # Train the model
 @st.cache_resource  # Cache the model to avoid retraining each time
 def train_model(df):
@@ -37,36 +43,51 @@ def predict_index(user_date, user_city, model_index, le_city):
         user_date = datetime.strptime(user_date, '%d-%m-%Y')
         year, month, day = user_date.year, user_date.month, user_date.day
     except ValueError:
-        return "Invalid date format. Please use dd-mm-yyyy format."
+        return "Invalid date format. Please use dd-mm-yyyy format.", None
     
     try:
         city_encoded = le_city.transform([user_city])[0]
     except ValueError:
-        return f"City '{user_city}' not found in the training data."
+        return f"City '{user_city}' not found in the training data.", None
     
     user_input = pd.DataFrame({'Year': [year], 'Month': [month], 'Day': [day], 'City': [city_encoded]})
     try:
         predicted_index_value = model_index.predict(user_input)
-        return predicted_index_value[0]
+        return predicted_index_value[0], None
     except Exception as e:
-        return f"Error during prediction: {e}"
+        return f"Error during prediction: {e}", None
+
+# Function to get prominent pollutants
+def get_prominent_pollutants(city, pollutants_df):
+    try:
+        pollutants = pollutants_df[pollutants_df['City'] == city]['Prominent Pollutant'].values
+        if len(pollutants) > 0:
+            return pollutants[0]
+        else:
+            return "No data available."
+    except Exception as e:
+        return f"Error retrieving pollutants: {e}"
 
 # Streamlit app layout
 def main():
     st.title("Pollution Index Prediction")
     df, le_city = load_and_preprocess_data()
+    pollutants_df = load_pollutants_data()
     model_index = train_model(df)
+    
     st.sidebar.header("User Input")
     user_date = st.sidebar.text_input("Enter the date (dd-mm-yyyy):")
     user_city = st.sidebar.selectbox("Select City", le_city.classes_)
     
     if st.sidebar.button("Predict"):
         if user_date and user_city:
-            predicted_index_value = predict_index(user_date, user_city, model_index, le_city)
-            if isinstance(predicted_index_value, str):  # If there's an error
-                st.error(predicted_index_value)
+            predicted_index_value, error = predict_index(user_date, user_city, model_index, le_city)
+            if error or isinstance(predicted_index_value, str):  # If there's an error
+                st.error(predicted_index_value or error)
             else:
                 st.success(f"Predicted Index Value: {predicted_index_value}")
+                prominent_pollutants = get_prominent_pollutants(user_city, pollutants_df)
+                st.info(f"Prominent Pollutants for {user_city}: {prominent_pollutants}")
         else:
             st.warning("Please enter both the date and city.")
 
